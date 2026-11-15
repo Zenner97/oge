@@ -20,11 +20,9 @@ function initNav(){for(const [target,id] of [['nav-desktop','navdesktop'],['nav-
 function updateProgress(){let s=countStats();let p=Math.round(100*s.filled/s.total);document.getElementById('side-score').textContent=p+'%';document.getElementById('side-bar').style.width=p+'%';document.getElementById('side-sub').textContent=`${s.filled} из ${s.total} ответов введено · ${s.correct} верных`}
 const prefersReducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 function transitionScreen(update,scrollToTop=true){
-  const paint=()=>{update();if(scrollToTop)window.scrollTo({top:0,behavior:'instant'})};
-  if(!prefersReducedMotion.matches && document.startViewTransition){
-    try{document.startViewTransition(paint);return}catch(error){}
-  }
-  paint();
+  // Render synchronously so rapid taps cannot race a pending view transition.
+  update();
+  if(scrollToTop){try{window.scrollTo(0,0)}catch(error){}}
   if(!prefersReducedMotion.matches){
     content.classList.remove('screen-enter');
     void content.offsetWidth;
@@ -76,7 +74,7 @@ function renderPractice(kind){
  h+=`<nav class="panel practice-controls practice-controls-bottom" aria-label="Навигация по вариантам"><span class="label">Вариант</span><select class="variant-select" id="variant-select" aria-label="Выбрать вариант">${variantOptions(kind,n)}</select><button class="button tiny" data-action="prev" ${n===1?'disabled':''}>← Пред.</button><button class="button tiny" data-action="next" ${n===DATA[kind].length?'disabled':''}>След. →</button></nav>`;
  return h;
 }
-function exerciseDecorate(){const kind=section,n=variant[kind];content.querySelectorAll('.answer').forEach(wrap=>{const i=Number(wrap.dataset.answer);let status=statusFor(kind,n,i);wrap.classList.toggle('correct',status==='correct');wrap.classList.toggle('wrong',status==='wrong' && wrap.dataset.checked==='yes');if(showAll){wrap.querySelector('.solution').classList.remove('hide');wrap.querySelector('.reveal').textContent='×'}else{wrap.querySelector('.solution').classList.add('hide');wrap.querySelector('.reveal').textContent='?'}})}
+function exerciseDecorate(){const kind=section,n=variant[kind];content.querySelectorAll('.answer').forEach(wrap=>{const i=Number(wrap.dataset.answer);let status=statusFor(kind,n,i);wrap.classList.toggle('correct',status==='correct' && wrap.dataset.checked==='yes');wrap.classList.toggle('wrong',status==='wrong' && wrap.dataset.checked==='yes');if(showAll){wrap.querySelector('.solution').classList.remove('hide');wrap.querySelector('.reveal').textContent='×'}else{wrap.querySelector('.solution').classList.add('hide');wrap.querySelector('.reveal').textContent='?'}})}
 function refreshPracticeVisual(){let n=variant[section],v=row(section,n),filled=v.a.filter((_,i)=>String(keyData(section,n)[i]||'').trim()).length,correct=v.a.filter((_,i)=>statusFor(section,n,i)==='correct').length;let r=document.getElementById('result');if(r)r.innerHTML=`<strong>${correct} / ${v.a.length}</strong> верно · ${filled} заполнено`;updateProgress()}
 // Google's Translate TTS endpoint is unofficial and can be rate-limited / blocked.
 // Play it as a media URL (no exposed Cloud credentials), with a strong browser-voice fallback.
@@ -125,7 +123,7 @@ function speakWord(word,button){
   const promise=audio.play();
   if(promise&&typeof promise.catch==='function')promise.catch(fail);
 }
-function renderFamilies(){let filtered=DATA.families.filter(x=>(x.base+' '+x.forms.join(' ')+' '+x.forms.map(tr).join(' ')).toLowerCase().includes(search.toLowerCase()));let h=`<div class="page-title"><div><h1>Словообразование</h1><p>Изучай, какие формы образуются от одного слова. Все пары взяты из твоего списка.</p></div><span class="top-pill">${DATA.families.length} словарных семей</span></div><div class="family-controls"><input class="searchbox" id="family-search" value="${esc(search)}" placeholder="Поиск: care, success, happy…" aria-label="Найти слово"><div class="segment"><button data-action="mode" data-mode="list" class="${familyMode==='list'?'active':''}">Все формы</button><button data-action="mode" data-mode="cards" class="${familyMode==='cards'?'active':''}">Карточки</button><button data-action="mode" data-mode="drill" class="${familyMode==='drill'?'active':''}">Практика</button></div></div>`;
+function renderFamilies(){let filtered=DATA.families.filter(x=>(x.base+' '+tr(x.base)+' '+x.forms.join(' ')+' '+x.forms.map(tr).join(' ')).toLowerCase().includes(search.toLowerCase()));let h=`<div class="page-title"><div><h1>Словообразование</h1><p>Изучай, какие формы образуются от одного слова. Все пары взяты из твоего списка.</p></div><span class="top-pill">${DATA.families.length} словарных семей</span></div><div class="family-controls"><input class="searchbox" id="family-search" value="${esc(search)}" placeholder="Поиск: care, success, happy…" aria-label="Найти слово"><div class="segment"><button data-action="mode" data-mode="list" class="${familyMode==='list'?'active':''}">Все формы</button><button data-action="mode" data-mode="cards" class="${familyMode==='cards'?'active':''}">Карточки</button><button data-action="mode" data-mode="drill" class="${familyMode==='drill'?'active':''}">Практика</button></div></div>`;
 if(familyMode==='drill')return h+renderDrill();
 h+=`<p style="color:#8c97aa;font-size:12px;margin:0 0 16px">Найдено: ${filtered.length}. ${familyMode==='cards'?'Нажми на карточку, чтобы открыть производные формы.':'Нажми на значок динамика, чтобы услышать произношение.'}</p><div class="family-grid">`;
 for(const f of filtered){let ix=DATA.families.indexOf(f);let revealed=familyMode==='list'||!!studyRevealed[ix];h+=`<article class="family ${familyMode==='cards'?'compact':''}" ${familyMode==='cards'?`data-action="flip" data-fi="${ix}" tabindex="0" role="button"`:''}><div class="family-head"><span class="family-num">СЕМЬЯ ${String(ix+1).padStart(3,'0')}</span><button class="speak" data-action="speak" data-word="${esc(f.base)}" title="Слушать слово" aria-label="Прослушать произношение ${esc(f.base)}">▶</button></div><h3>${esc(f.base)}</h3><div class="family-translation">${esc(tr(f.base))}</div>${revealed?`<div class="family-forms">${f.forms.filter(w=>w!==f.base).map(w=>`<span class="wordchip"><span class="wordchip-line"><b class="wordchip-en">${esc(w)}</b><button type="button" class="speak speak-small" data-action="speak" data-word="${esc(w)}" title="Прослушать ${esc(w)}" aria-label="Прослушать ${esc(w)}">▶</button></span><span class="wordchip-ru">${esc(tr(w))}</span></span>`).join('')}</div>`:'<div class="family-back">Нажми, чтобы показать формы →</div>'}${revealed&&familyMode==='list'&&f.links.length>1?`<div class="family-links">${f.links.map(([a,b])=>`${esc(a)} → ${esc(b)}`).join(' · ')}</div>`:''}</article>`}
@@ -142,7 +140,7 @@ root.addEventListener('click',e=>{
  if(a==='prev'||a==='next'||a==='jump'){transitionScreen(()=>{variant[section]=a==='jump'?Number(target.dataset.n):Math.max(1,Math.min(DATA[section].length,variant[section]+(a==='next'?1:-1)));showAll=false;render()});return}
  if(a==='grid'){showVariantGrid=!showVariantGrid;render();return}
  if(a==='check'){markChecked();return}
- if(a==='reveal-all'){showAll=!showAll;exerciseDecorate();return}
+ if(a==='reveal-all'){showAll=!showAll;exerciseDecorate();target.textContent=showAll?'Скрыть ответы':'Показать все ответы';return}
  if(a==='reset'){if(!confirm('Очистить ответы в этом варианте?'))return;store[variantKey(section,variant[section])]={};persist();showAll=false;render();return}
  if(a==='reveal'){let w=target.closest('.answer'),node=w.querySelector('.solution'),opened=!node.classList.contains('hide');node.classList.toggle('hide',opened);target.textContent=opened?'?':'×';return}
  if(a==='mode'){transitionScreen(()=>{familyMode=target.dataset.mode;render()},false);return}
