@@ -30,7 +30,7 @@ function transitionScreen(update,scrollToTop=true){
   }
 }
 function setPage(name){if(!topics.some(([id])=>id===name))return;transitionScreen(()=>{page=name;showAll=false;showVariantGrid=false;render()})}
-function variantOptions(kind,selected){return DATA[kind].map(x=>`<option value="${x.n}" ${x.n===selected?'selected':''}>№ ${x.n}</option>`).join('')}
+function variantOptions(kind,selected){return DATA[kind].map(x=>`<option value="${x.n}" ${x.n===selected?'selected':''}>${x.n}</option>`).join('')}
 function bounceResult(){const item=document.getElementById('result');if(!item||prefersReducedMotion.matches)return;item.classList.remove('result-bounce');void item.offsetWidth;item.classList.add('result-bounce')}
 function celebrate(anchor){if(prefersReducedMotion.matches||!anchor)return;const rect=anchor.getBoundingClientRect();const layer=document.createElement('div');layer.className='success-burst';layer.style.left=(rect.left+rect.width/2)+'px';layer.style.top=(rect.top+rect.height/2)+'px';for(let i=0;i<12;i++){const part=document.createElement('span');part.style.setProperty('--angle',(i*30)+'deg');part.style.setProperty('--distance',(30+(i%3)*10)+'px');part.style.setProperty('--delay',(i%3*24)+'ms');layer.append(part)}document.body.append(layer);window.setTimeout(()=>layer.remove(),900)}
 function showFeedbackToast(message){let status=document.getElementById('speech-status');if(!status)return;status.textContent=message;status.classList.add('visible');window.clearTimeout(showFeedbackToast.timer);showFeedbackToast.timer=window.setTimeout(()=>status.classList.remove('visible'),2200)}
@@ -46,7 +46,7 @@ function exerciseLine(kind,n,str,start){
      const i=cur++,value=keyData(kind,n)[i]||'',taskNo=firstNumber+i;
      // A few source paragraphs contain two gaps: give every gap its own OGE task number.
      if(j>0)h+=` <span class="task-inline-number" aria-label="Задание ${taskNo}">${taskNo}</span> `;
-     h+=`<span class="answer" data-answer="${i}"><input autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(value)}" data-kind="${kind}" data-n="${n}" data-index="${i}" aria-label="Ответ на задание ${taskNo}"><button type="button" class="reveal" data-action="reveal" data-i="${i}" aria-label="Показать правильный ответ на задание ${taskNo}" title="Показать правильный ответ">?</button><span class="solution hide">${esc(row(kind,n).a[i])}</span></span>`;
+     h+=`<span class="answer" data-answer="${i}"><input autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(value)}" data-kind="${kind}" data-n="${n}" data-index="${i}" aria-label="Ответ на задание ${taskNo}"><button type="button" class="reveal" data-action="reveal" data-i="${i}" aria-label="Показать правильный ответ на задание ${taskNo}" title="Показать правильный ответ">?</button><span class="solution hide">${esc(String(row(kind,n).a[i]||'').toLocaleLowerCase('en-US'))}</span></span>`;
    }
  }
  return [h,cur];
@@ -57,7 +57,7 @@ function renderPractice(kind){
  const count=v.a.length,filled=v.a.filter((_,i)=>String(st[i]||'').trim()).length,
        correct=v.a.filter((_,i)=>statusFor(kind,n,i)==='correct').length;
  const base=kind==='grammar'?20:29;
- let h=`<section class="panel exercise"><div class="exercise-head"><div><div class="exercise-meta">ЗАДАНИЕ ОГЭ · ${kind==='grammar'?'ГРАММАТИКА':'ЛЕКСИКА'}</div><div class="exercise-heading-row"><strong>Вариант ${n}</strong><label class="variant-top-label"><span class="visually-hidden">Выбрать вариант сверху</span><select class="variant-select variant-select-top" id="variant-select-top" data-variant-select aria-label="Выбрать вариант сверху">${variantOptions(kind,n)}</select></label></div></div><span class="exercise-range">${kind==='grammar'?'20—28':'29—34'}</span></div>`;
+ let h=`<section class="panel exercise"><div class="exercise-head"><div><div class="exercise-meta">ЗАДАНИЕ ОГЭ · ${kind==='grammar'?'ГРАММАТИКА':'ЛЕКСИКА'}</div><div class="exercise-heading-row"><strong>Вариант</strong><label class="variant-top-label"><span class="visually-hidden">Выбрать вариант сверху</span><select class="variant-select variant-select-top" id="variant-select-top" data-variant-select aria-label="Выбрать вариант сверху">${variantOptions(kind,n)}</select></label></div></div><span class="exercise-range">${kind==='grammar'?'20—28':'29—34'}</span></div>`;
  for(const note of v.notes)h+=`<div class="note">⚠ ${esc(note)}</div>`;
  let at=0;h+='<div class="exercise-body">';
  for(const paragraph of v.p){
