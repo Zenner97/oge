@@ -2,17 +2,20 @@
 (function(){'use strict';
 const DATA=window.OGE_DATA, TRANSLATIONS=window.OGE_TRANSLATIONS;
 const tr=w=>TRANSLATIONS[String(w||'').toLowerCase()]||'';
-const icons={home:'<svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></svg>',grammar:'<svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M4 3h15v18H4z"/><path d="M8 7h7M8 11h7M8 15h4"/></svg>',lexicon:'<svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M4 5c3-2 6-2 8 0v15c-3-2-5-2-8 0zM12 5c2-2 5-2 8 0v15c-3-2-5-2-8 0z"/></svg>',families:'<span class="word-icon" aria-hidden="true">W</span>'};
-const topics=[['home','Главная'],['grammar','Грамматика'],['lexicon','Лексика'],['families','Словообразование']];
+const icons={home:'<svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></svg>',grammar:'<svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M4 3h15v18H4z"/><path d="M8 7h7M8 11h7M8 15h4"/></svg>',lexicon:'<svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M4 5c3-2 6-2 8 0v15c-3-2-5-2-8 0zM12 5c2-2 5-2 8 0v15c-3-2-5-2-8 0z"/></svg>',families:'<span class="word-icon" aria-hidden="true">W</span>',account:'<svg fill="none" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-3c0-6 16-6 16 0v3"/></svg>'};
+const topics=[['home','Главная'],['grammar','Грамматика'],['lexicon','Лексика'],['families','Словообразование'],['account','Кабинет']];
 const root=document.getElementById('oge-app'),content=document.getElementById('content');
-let page='home',section='grammar',variant={grammar:1,lexicon:1},showVariantGrid=false,showAll=false,familyMode='list',search='',studyRevealed={},drillIndex=0,drillShown=false,drillFeedback='';
-const storageKey='oge-progress-v1';let store={};try{const legacyKey='oge'+(2027-1)+'-progress-v1';store=JSON.parse(localStorage.getItem(storageKey)||localStorage.getItem(legacyKey)||'{}')||{}}catch(e){}
+let practiceStartedAt=Date.now();let page='home',section='grammar',variant={grammar:1,lexicon:1},showVariantGrid=false,showAll=false,familyMode='list',search='',studyRevealed={},drillIndex=0,drillShown=false,drillFeedback='';
+let storageKey='oge-progress-v1';let store={};try{const legacyKey='oge'+(2027-1)+'-progress-v1';store=JSON.parse(localStorage.getItem(storageKey)||localStorage.getItem(legacyKey)||'{}')||{}}catch(e){}
 const esc=x=>String(x??'').replace(/[&<>"']/g,y=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[y]));
 const clean=x=>String(x||'').normalize('NFKC').toLowerCase().trim().replace(/\s+/g,' ').replace(/[’‘]/g,"'").replace(/с/g,'c');
 const variantKey=(kind,n)=>kind+'-'+n;
 const row=(kind,n)=>DATA[kind][n-1];
 const keyData=(kind,n)=>{const k=variantKey(kind,n);if(!store[k])store[k]={};return store[k]};
 const persist=()=>{try{localStorage.setItem(storageKey,JSON.stringify(store))}catch(e){}};
+// Anonymous drafts are not mixed with another student's drafts on shared devices.
+function accountScope(user){const next=user?'oge-progress-user-'+user.id:'oge-progress-v1';if(next===storageKey)return;storageKey=next;try{store=JSON.parse(localStorage.getItem(next)||'{}')||{}}catch(e){store={}}}
+
 const answersFor=x=>String(x||'').split(/\s+ИЛИ\s+|\s+или\s+|\s*\/\s*/i).map(clean);
 const statusFor=(kind,n,i)=>{let state=keyData(kind,n),user=(state[i]||'').trim();return !user?'empty':answersFor(row(kind,n).a[i]).includes(clean(user))?'correct':'wrong'};
 const countStats=()=>{let total=0,filled=0,correct=0;for(const kind of ['grammar','lexicon'])for(const v of DATA[kind]){total+=v.a.length;for(let i=0;i<v.a.length;i++){const st=statusFor(kind,v.n,i);if(st!=='empty')filled++;if(st==='correct')correct++}}return {total,filled,correct}};
@@ -20,7 +23,6 @@ function initNav(){for(const [target,id] of [['nav-desktop','navdesktop'],['nav-
 function updateProgress(){let s=countStats();let p=Math.round(100*s.filled/s.total);document.getElementById('side-score').textContent=p+'%';document.getElementById('side-bar').style.width=p+'%';document.getElementById('side-sub').textContent=`${s.filled} из ${s.total} ответов введено · ${s.correct} верных`}
 const prefersReducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 function transitionScreen(update,scrollToTop=true){
-  // Render synchronously so rapid taps cannot race a pending view transition.
   update();
   if(scrollToTop){try{window.scrollTo(0,0)}catch(error){}}
   if(!prefersReducedMotion.matches){
@@ -52,6 +54,7 @@ function exerciseLine(kind,n,str,start){
  return [h,cur];
 }
 function renderPractice(kind){
+ practiceStartedAt=Date.now();
  section=kind;
  const n=variant[kind],v=row(kind,n),st=keyData(kind,n);
  const count=v.a.length,filled=v.a.filter((_,i)=>String(st[i]||'').trim()).length,
@@ -130,11 +133,12 @@ for(const f of filtered){let ix=DATA.families.indexOf(f);let revealed=familyMode
 if(!filtered.length)h+='<div class="panel" style="padding:24px;color:#7b8498">Нет совпадений. Попробуй другое слово.</div>';h+='</div>';return h}
 let drills=DATA.families.flatMap(f=>f.links.map(([base,to])=>({base,to}))).filter(x=>x.base!==x.to);
 function renderDrill(){let d=drills[drillIndex%drills.length];return `<div class="drill"><div class="drill-label">ТРЕНИРОВКА СЛОВООБРАЗОВАНИЯ · ${drillIndex+1}</div><h2>${esc(d.base)}</h2><div class="arrow">↓</div><p>Вспомни слово, которое образуется от <b>${esc(d.base)}</b>.<br>Введи производную форму из изученного списка.</p><input id="drill-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Введите производное слово"><div class="drill-output" id="drill-out">${drillShown?esc(drillFeedback):''}</div><div class="drill-actions"><button class="button primary" data-action="drill-check">Проверить</button><button class="button" data-action="drill-reveal">Показать ответ</button><button class="button" data-action="drill-next">Следующее →</button></div></div>`}
-function render(){initNav();if(page==='home')content.innerHTML=home();else if(page==='families')content.innerHTML=renderFamilies();else{content.innerHTML=renderPractice(page);exerciseDecorate()}updateProgress()}
-function markChecked(){content.querySelectorAll('.answer').forEach(w=>w.dataset.checked='yes');exerciseDecorate();refreshPracticeVisual();bounceResult();const inputs=[...content.querySelectorAll('.answer')];if(inputs.length&&inputs.every(el=>el.classList.contains('correct')))celebrate(root.querySelector('[data-action=check]'))}
+function render(){initNav();if(page==='account')content.innerHTML=window.OGEAccount.render();else if(page==='home')content.innerHTML=home();else if(page==='families')content.innerHTML=renderFamilies();else{content.innerHTML=renderPractice(page);exerciseDecorate()}updateProgress()}
+function markChecked(){const resultKind=section, resultVariant=variant[section], resultAnswers=[...content.querySelectorAll('input[data-kind]')].map(x=>x.value);content.querySelectorAll('.answer').forEach(w=>w.dataset.checked='yes');exerciseDecorate();refreshPracticeVisual();bounceResult();const inputs=[...content.querySelectorAll('.answer')];if(inputs.length&&inputs.every(el=>el.classList.contains('correct')))celebrate(root.querySelector('[data-action=check]'));window.OGEAccount.saveAttempt({kind:resultKind,variant:resultVariant,answers:resultAnswers,durationSeconds:Math.round((Date.now()-practiceStartedAt)/1000)})}
 function alertToast(message){let out=document.getElementById('drill-out');if(out)out.textContent=message}
 root.addEventListener('click',e=>{
  let target=e.target.closest('[data-action]');if(!target)return;let a=target.dataset.action;
+ if(a.startsWith('account-')){window.OGEAccount.handleClick(target);return}
  if(a==='theme'){let mode=target.dataset.theme;if(mode!=='light'&&mode!=='dark')return;document.documentElement.dataset.theme=mode;try{localStorage.setItem('oge-theme-v1',mode)}catch(e){};root.querySelectorAll('[data-action=theme]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.theme===mode)));return}
  if(a==='nav'){setPage(target.dataset.page);return}
  if(a==='prev'||a==='next'||a==='jump'){transitionScreen(()=>{variant[section]=a==='jump'?Number(target.dataset.n):Math.max(1,Math.min(DATA[section].length,variant[section]+(a==='next'?1:-1)));showAll=false;render()});return}
@@ -151,6 +155,7 @@ root.addEventListener('click',e=>{
  if(a==='drill-next'){drillIndex=(drillIndex+1)%drills.length;drillShown=false;drillFeedback='';render();document.getElementById('drill-input')?.focus();return}
 });
 
+root.addEventListener('submit',e=>{if(e.target.id.startsWith('account-'))window.OGEAccount.handleSubmit(e)});
 root.addEventListener('pointerdown',e=>{
   if(prefersReducedMotion.matches)return;
   const target=e.target.closest('button,[role="button"]');
@@ -165,5 +170,7 @@ root.addEventListener('input',e=>{let t=e.target;if(t.matches('input[data-kind]'
 root.addEventListener('change',e=>{if(e.target.matches('[data-variant-select],#variant-select')){const next=Number(e.target.value);if(!Number.isInteger(next)||next<1||next>DATA[section].length)return;transitionScreen(()=>{variant[section]=next;showAll=false;render()})}});
 root.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input[data-kind]')){e.preventDefault();let w=e.target.closest('.answer');w.dataset.checked='yes';w.classList.toggle('correct',statusFor(section,variant[section],Number(w.dataset.answer))==='correct');w.classList.toggle('wrong',statusFor(section,variant[section],Number(w.dataset.answer))==='wrong');let inputs=[...content.querySelectorAll('input[data-kind]')];let at=inputs.indexOf(e.target);if(at+1<inputs.length)inputs[at+1].focus();refreshPracticeVisual()}if(e.key==='Enter'&&e.target.id==='drill-input'){e.preventDefault();root.querySelector('[data-action="drill-check"]')?.click()}if((e.key==='Enter'||e.key===' ')&&['flip','nav'].includes(e.target.dataset.action)&&e.target.matches('[role=button]')){e.preventDefault();e.target.click()}});
 root.querySelectorAll('[data-action=theme]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.theme===document.documentElement.dataset.theme)));
+window.OGEAccount.subscribe(()=>{accountScope(window.OGEAccount.loadState().user);if(page==='account')render();else updateProgress()});
 render();
+window.OGEAccount.init();
 })();
