@@ -66,3 +66,6 @@ button:not(:disabled):active,[role="button"]:active{transform:translateY(1px) sc
   #content{view-transition-name:none}
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+/* Shown only when recoverable local drafts from the former cabinet exist. */
+.recovery-banner{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px;margin:0 0 16px;padding:16px 18px}
+.recovery-banner strong{font-size:14px}.recovery-banner p{font-size:13px;margin:6px 0 0;max-width:640px}.recovery-actions{display:flex;gap:8px;flex-wrap:wrap}.recovery-banner .button{font-size:12px}.recovery-choice{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;margin-top:10px}.recovery-choice select{border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--field-text);padding:7px 9px}
