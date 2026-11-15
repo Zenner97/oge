@@ -166,10 +166,62 @@ function speakWord(word,button){
   const promise=audio.play();
   if(promise&&typeof promise.catch==='function')promise.catch(fail);
 }
+const MORPH_PREFIXES=["inter","dis","un","im","in","ir","il","mis","re"];
+const MORPH_SUFFIXES=["ation","ition","sion","ance","ence","ment","ness","ship","ful","less","able","ible","ical","ality","ity","ive","ist","ous","ent","ion","ure","ite","tic","al","an","er","or","ly","ing","y"];
+const MORPH_SPECIAL={"decision":["","deci",["sion"]],"explanation":["","explan",["ation"]],"russian":["","russi",["an"]],"scientist":["","scient",["ist"]],"probably":["","probab",["ly"]],"knowledge":["","know",["~ledge"]]};
+function splitMorphemes(base,word){
+ const special=MORPH_SPECIAL[word];
+ if(special)return special;
+ const stems=new Set([base]);
+ if(base.endsWith('e'))stems.add(base.slice(0,-1));
+ if(base.endsWith('y')){stems.add(base.slice(0,-1)+'i');stems.add(base.slice(0,-1))}
+ if(/[tnmlprg]$/.test(base))stems.add(base+base.slice(-1));
+ for(const prefix of ['',...MORPH_PREFIXES]){
+   if(prefix&&!word.startsWith(prefix))continue;
+   const remainder=word.slice(prefix.length);
+   if(remainder===base)return [prefix,remainder,[]];
+   for(const suffix of MORPH_SUFFIXES){
+     if(!remainder.endsWith(suffix))continue;
+     const stem=remainder.slice(0,-suffix.length);
+     if(stems.has(stem))return [prefix,stem,[suffix]];
+     for(const firstSuffix of ['al','ful','less']){
+       if(stem.endsWith(firstSuffix)&&stems.has(stem.slice(0,-firstSuffix.length))){
+         return [prefix,stem.slice(0,-firstSuffix.length),[firstSuffix,suffix]];
+       }
+     }
+   }
+ }
+ return ['',word,[]];
+}
+function markedWord(base,word){
+ const [prefix,stem,suffixes]=splitMorphemes(base,word);
+ let result=prefix?`<span class="morph-prefix" title="Приставка">${esc(prefix)}</span>`:'';
+ result+=esc(stem);
+ for(const s of suffixes){
+   const irregular=s.startsWith('~'),suffix=irregular?s.slice(1):s;
+   const part=irregular?'change':suffix==='ing'?'ending':'suffix';
+   const label=part==='ending'?'Форма -ing':part==='change'?'Изменение основы':'Суффикс';
+   result+=`<span class="morph-${part}" title="${label}">${esc(suffix)}</span>`;
+ }
+ return result;
+}
+function familyDetails(f){
+ const forms=f.forms.filter(w=>w!==f.base);
+ let h=`<div class="family-forms">${forms.map(w=>`<span class="wordchip"><span class="wordchip-line"><b class="wordchip-en">${markedWord(f.base,w)}</b><button type="button" class="speak speak-small" data-action="speak" data-word="${esc(w)}" title="Прослушать ${esc(w)}" aria-label="Прослушать ${esc(w)}">▶</button></span><span class="wordchip-ru">${esc(tr(w))}</span></span>`).join('')}</div>`;
+ if(familyMode==='list'&&f.links.length>1)h+=`<div class="family-links">${f.links.map(([a,b])=>`${esc(a)} → ${esc(b)}`).join(' · ')}</div>`;
+ return h;
+}
+function renderFamilyGrid(filtered){
+ let h=`<p style="color:var(--muted);font-size:12px;margin:0 0 10px">Найдено: ${filtered.length}. ${familyMode==='cards'?'Нажми на карточку, чтобы открыть производные формы.':'Нажми на значок динамика, чтобы услышать произношение.'}</p><div class="morph-legend" aria-label="Цветовое обозначение частей слова"><span><i class="morph-prefix">un-</i> приставка</span><span><i class="morph-suffix">-ful</i> суффикс</span><span><i class="morph-ending">-ing</i> форма -ing</span></div><div class="family-grid">`;
+ for(const f of filtered){
+  let ix=DATA.families.indexOf(f),revealed=familyMode==='list'||!!studyRevealed[ix];
+  h+=`<article class="family ${familyMode==='cards'?'compact':''}" ${familyMode==='cards'?`data-action="flip" data-fi="${ix}" tabindex="0" role="button" aria-expanded="${revealed}"`:''}><div class="family-head"><span class="family-num">СЕМЬЯ ${String(ix+1).padStart(3,'0')}</span><button type="button" class="speak" data-action="speak" data-word="${esc(f.base)}" title="Слушать слово" aria-label="Прослушать произношение ${esc(f.base)}">▶</button></div><h3>${esc(f.base)}</h3><div class="family-translation">${esc(tr(f.base))}</div><div class="family-details">${revealed?familyDetails(f):'<div class="family-back">Нажми, чтобы показать формы →</div>'}</div></article>`;
+ }
+ return h;
+}
 function renderFamilies(){let filtered=DATA.families.filter(x=>(x.base+' '+tr(x.base)+' '+x.forms.join(' ')+' '+x.forms.map(tr).join(' ')).toLowerCase().includes(search.toLowerCase()));let h=`<div class="page-title"><div><h1>Словообразование</h1><p>Изучай, какие формы образуются от одного слова. Все пары взяты из твоего списка.</p></div><span class="top-pill">${DATA.families.length} словарных семей</span></div><div class="family-controls"><input class="searchbox" id="family-search" value="${esc(search)}" placeholder="Поиск: care, success, happy…" aria-label="Найти слово"><div class="segment"><button data-action="mode" data-mode="list" class="${familyMode==='list'?'active':''}">Все формы</button><button data-action="mode" data-mode="cards" class="${familyMode==='cards'?'active':''}">Карточки</button><button data-action="mode" data-mode="drill" class="${familyMode==='drill'?'active':''}">Практика</button></div></div>`;
 if(familyMode==='drill')return h+renderDrill();
-h+=`<p style="color:#8c97aa;font-size:12px;margin:0 0 16px">Найдено: ${filtered.length}. ${familyMode==='cards'?'Нажми на карточку, чтобы открыть производные формы.':'Нажми на значок динамика, чтобы услышать произношение.'}</p><div class="family-grid">`;
-for(const f of filtered){let ix=DATA.families.indexOf(f);let revealed=familyMode==='list'||!!studyRevealed[ix];h+=`<article class="family ${familyMode==='cards'?'compact':''}" ${familyMode==='cards'?`data-action="flip" data-fi="${ix}" tabindex="0" role="button"`:''}><div class="family-head"><span class="family-num">СЕМЬЯ ${String(ix+1).padStart(3,'0')}</span><button class="speak" data-action="speak" data-word="${esc(f.base)}" title="Слушать слово" aria-label="Прослушать произношение ${esc(f.base)}">▶</button></div><h3>${esc(f.base)}</h3><div class="family-translation">${esc(tr(f.base))}</div>${revealed?`<div class="family-forms">${f.forms.filter(w=>w!==f.base).map(w=>`<span class="wordchip"><span class="wordchip-line"><b class="wordchip-en">${esc(w)}</b><button type="button" class="speak speak-small" data-action="speak" data-word="${esc(w)}" title="Прослушать ${esc(w)}" aria-label="Прослушать ${esc(w)}">▶</button></span><span class="wordchip-ru">${esc(tr(w))}</span></span>`).join('')}</div>`:'<div class="family-back">Нажми, чтобы показать формы →</div>'}${revealed&&familyMode==='list'&&f.links.length>1?`<div class="family-links">${f.links.map(([a,b])=>`${esc(a)} → ${esc(b)}`).join(' · ')}</div>`:''}</article>`}
+h+=renderFamilyGrid(filtered);
 if(!filtered.length)h+='<div class="panel" style="padding:24px;color:#7b8498">Нет совпадений. Попробуй другое слово.</div>';h+='</div>';return h}
 let drills=DATA.families.flatMap(f=>f.links.map(([base,to])=>({base,to}))).filter(x=>x.base!==x.to);
 function renderDrill(){let d=drills[drillIndex%drills.length];return `<div class="drill"><div class="drill-label">ТРЕНИРОВКА СЛОВООБРАЗОВАНИЯ · ${drillIndex+1}</div><h2>${esc(d.base)}</h2><div class="arrow">↓</div><p>Вспомни слово, которое образуется от <b>${esc(d.base)}</b>.<br>Введи производную форму из изученного списка.</p><input id="drill-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Введите производное слово"><div class="drill-output" id="drill-out">${drillShown?esc(drillFeedback):''}</div><div class="drill-actions"><button class="button primary" data-action="drill-check">Проверить</button><button class="button" data-action="drill-reveal">Показать ответ</button><button class="button" data-action="drill-next">Следующее →</button></div></div>`}
@@ -189,7 +241,7 @@ root.addEventListener('click',e=>{
  if(a==='reset'){if(!confirm('Очистить ответы в этом варианте?'))return;store[variantKey(section,variant[section])]={};persist();showAll=false;render();return}
  if(a==='reveal'){let w=target.closest('.answer'),node=w.querySelector('.solution'),opened=!node.classList.contains('hide');node.classList.toggle('hide',opened);target.textContent=opened?'?':'×';return}
  if(a==='mode'){transitionScreen(()=>{familyMode=target.dataset.mode;render()},false);return}
- if(a==='flip'){let i=Number(target.dataset.fi);transitionScreen(()=>{studyRevealed[i]=!studyRevealed[i];render()},false);return}
+ if(a==='flip'){const i=Number(target.dataset.fi),f=DATA.families[i],details=target.querySelector('.family-details');if(!f||!details)return;studyRevealed[i]=!studyRevealed[i];details.innerHTML=studyRevealed[i]?familyDetails(f):'<div class="family-back">Нажми, чтобы показать формы →</div>';target.setAttribute('aria-expanded',String(studyRevealed[i]));return}
  if(a==='speak'){e.stopPropagation();speakWord(target.dataset.word,target);return}
  if(a==='drill-reveal'){drillShown=true;drillFeedback='Правильная форма: '+drills[drillIndex%drills.length].to+' — '+tr(drills[drillIndex%drills.length].to);alertToast(drillFeedback);return}
  if(a==='drill-check'){let text=clean(document.getElementById('drill-input')?.value),d=drills[drillIndex%drills.length];drillShown=true;drillFeedback=!text?'Сначала введи слово.':text===clean(d.to)?'✓ Верно! '+d.base+' → '+d.to:'Пока нет. Правильный ответ: '+d.to+' — '+tr(d.to);alertToast(drillFeedback);return}
