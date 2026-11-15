@@ -1,5 +1,5 @@
-/* OGE LAB 2027 — desktop readability without animations */
-
+/* OGE LAB 2027 — motion and desktop readability enhancements */
+:root { --ease-pop: cubic-bezier(.18,.85,.28,1.2); --ease-screen:cubic-bezier(.2,.75,.24,1); }
 /* Larger test text on desktop; compact spacing for laptop heights remains intact. */
 @media(min-width:1051px){
   .exercise-body{font-size:17.7px;line-height:1.47;letter-spacing:-.017em;}
@@ -22,12 +22,47 @@
 .variant-select-top:hover{background:var(--lime);}
 .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 @media(max-width:600px){.exercise-heading-row{gap:7px}.variant-select-top{padding:5px 23px 5px 9px;min-width:76px;font-size:11px}}
+/* tactile feedback */
+button,[role="button"]{position:relative;isolation:isolate; -webkit-tap-highlight-color:transparent;}
+button:not(:disabled),[role="button"],select{touch-action:manipulation;}
+button:not(:disabled):active,[role="button"]:active{transform:translateY(1px) scale(.965);}
+.nav button,.mobile-nav button,.theme-control button,.segment button,.hero-cta,.topic,.family.compact,.speak,.button,.variant{transition:transform .22s var(--ease-pop),background-color .2s ease,box-shadow .2s ease,border-color .2s ease,color .2s ease;}
+.nav button:hover,.mobile-nav button:hover{transform:translateX(2px)}
+.topic:hover{transform:translateY(-5px) rotate(-.25deg);box-shadow:5px 7px 0 rgba(23,27,18,.18)}
+.family.compact:hover{transform:translateY(-3px) rotate(.15deg)}
+.hero-cta:hover{transform:translateY(-2px) scale(1.018)}
+.speak.speaking{animation:speakerPulse .6s ease-in-out infinite alternate;background:var(--lime-strong);}
+.tap-ripple{position:absolute;z-index:6;pointer-events:none;border-radius:50%;background:rgba(186,255,65,.36);transform:scale(0);opacity:.9;animation:inkBurst .57s ease-out both;mix-blend-mode:multiply;}
+[data-theme="dark"] .tap-ripple{background:rgba(232,255,135,.23);mix-blend-mode:normal;}
+#content{view-transition-name:oge-stage;}
+#content.screen-enter{animation:screenPop .39s var(--ease-screen) both;}
+::view-transition-old(oge-stage){animation:screenOut .16s ease-in both;}
+::view-transition-new(oge-stage){animation:screenPop .38s var(--ease-screen) both;}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.13s;}
+.result-bounce{animation:resultBounce .6s var(--ease-pop)}
+.answer.correct{animation:correctReveal .4s ease both}
+.answer.wrong[data-checked="yes"]{animation:wrongReveal .32s ease both}
+.family.compact .family-forms{animation:formsSlide .33s var(--ease-pop) both}
+.family.compact .family-back{animation:formsSlide .22s ease both}
+.success-burst{position:fixed;pointer-events:none;z-index:500;}
+.success-burst span{position:absolute;width:8px;height:11px;border-radius:2px;background:var(--lime);border:1px solid #172012;transform:rotate(var(--angle));animation:confettiBurst .7s ease-out var(--delay) forwards;}
+.success-burst span:nth-child(3n){background:#ffbb43}.success-burst span:nth-child(3n+1){background:#9c8dff}
 .speak-small{width:23px;height:23px;font-size:10px;flex-shrink:0;padding:0;box-shadow:none;}
 .wordchip-line{display:flex;align-items:center;justify-content:space-between;gap:7px;min-width:0;}
 .wordchip-en{min-width:0;overflow-wrap:anywhere;}
 .speech-status{position:fixed;z-index:1000;bottom:24px;left:50%;transform:translate(-50%,15px);opacity:0;pointer-events:none;background:#192217;color:#f8ffec;border:1px solid #ceff5a;border-radius:999px;box-shadow:0 8px 32px rgba(0,0,0,.2);padding:10px 16px;font-size:12px;font-weight:800;transition:opacity .22s ease,transform .22s var(--ease-pop);white-space:nowrap;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis;}
 .speech-status.visible{opacity:1;transform:translate(-50%,0)}
 @media(max-width:720px){.speech-status{bottom:84px}}
-/* Instant interactions: preserve controls and desktop readability without motion. */
-*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;}
-#content{view-transition-name:none!important;}
+@keyframes screenPop{from{opacity:.2;transform:translateY(12px) scale(.988);filter:blur(2px)}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}
+@keyframes screenOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(-7px) scale(.99)}}
+@keyframes inkBurst{0%{transform:scale(0);opacity:.85}75%{opacity:.35}100%{transform:scale(1);opacity:0}}
+@keyframes speakerPulse{from{box-shadow:0 0 0 0 rgba(173,228,21,.55)}to{box-shadow:0 0 0 7px rgba(173,228,21,0)}}
+@keyframes resultBounce{0%{transform:scale(.92);opacity:.4}60%{transform:scale(1.14)}100%{transform:scale(1);opacity:1}}
+@keyframes correctReveal{0%{box-shadow:0 0 0 0 rgba(50,190,110,.45)}100%{box-shadow:0 0 0 6px rgba(50,190,110,0)}}
+@keyframes wrongReveal{0%,100%{transform:translateX(0)}30%{transform:translateX(-2px)}60%{transform:translateX(2px)}}
+@keyframes formsSlide{from{opacity:.15;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes confettiBurst{0%{transform:rotate(var(--angle)) translateY(0) scale(.6);opacity:1}100%{transform:rotate(var(--angle)) translateY(calc(-1 * var(--distance))) scale(1);opacity:0}}
+@media(prefers-reduced-motion:reduce){
+  #content{view-transition-name:none}
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
