@@ -286,3 +286,51 @@ html[data-theme="dark"] .theme-control [data-theme="dark"] {background:var(--lim
   .answer input {width:93px;min-width:80px}
 }
 @media(prefers-reduced-motion:reduce) {*,*::before,*::after {animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Word formation: maintain scroll position and expose affixes clearly. */
+.family-grid,.family-grid * {overflow-anchor:none}
+.family-grid {align-items:start}
+.family,.family-details,.family-forms,.wordchip {min-width:0}
+.wordchip {max-width:100%}
+.wordchip-en {overflow-wrap:anywhere;word-break:normal;line-height:1.45}
+.morph-prefix {color:var(--morph-prefix);background:var(--morph-prefix-bg)}
+.morph-suffix {color:var(--morph-suffix);background:var(--morph-suffix-bg)}
+.morph-ending {color:var(--morph-ending);background:var(--morph-ending-bg)}
+.morph-change {color:var(--morph-change);background:var(--morph-change-bg)}
+.wordchip-en :is(.morph-prefix,.morph-suffix,.morph-ending,.morph-change){font-weight:950;border-radius:4px;padding:0 1px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.morph-legend {display:flex;flex-wrap:wrap;gap:7px 14px;margin:0 0 13px;font-size:11px;font-weight:750;color:var(--muted)}
+.morph-legend span {display:inline-flex;gap:5px;align-items:center}
+.morph-legend i {font-style:normal;border-radius:5px;padding:2px 5px;font-weight:900}
+:root,html[data-theme="light"]{
+ --morph-prefix:#6b39ad;--morph-prefix-bg:#f1e8ff;
+ --morph-suffix:#a84119;--morph-suffix-bg:#fff0df;
+ --morph-ending:#006f7e;--morph-ending-bg:#def7f6;
+ --morph-change:#5263a5;--morph-change-bg:#e8edfc;
+}
+html[data-theme="dark"]{
+ --morph-prefix:#d1b1ff;--morph-prefix-bg:#433259;
+ --morph-suffix:#ffc497;--morph-suffix-bg:#5a3427;
+ --morph-ending:#8de8e4;--morph-ending-bg:#24494e;
+ --morph-change:#b5c4ff;--morph-change-bg:#353c59;
+}
+@media (max-width:720px){
+ .family-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .family {min-width:0;padding:12px;min-height:144px}
+ .family h3 {font-size:19px;overflow-wrap:anywhere}
+ .family-forms {display:flex;flex-direction:column;align-items:stretch}
+ .wordchip {width:100%;padding:7px 8px}
+ .wordchip-en {font-size:12px}
+ .family-head {gap:4px}
+ .family-num {font-size:9px}
+ .family .speak:not(.speak-small) {width:30px;height:30px;min-width:30px}
+ .family-translation {overflow-wrap:anywhere;font-size:11px}
+}
+@media (max-width:420px){
+ .family-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .family {padding:11px}
+ .wordchip {padding:6px}
+ .wordchip-en {font-size:11.5px}
+ .wordchip-line {gap:4px}
+ .wordchip-ru {font-size:10px}
+ .family-back {padding:9px 6px;font-size:10px}
+}
