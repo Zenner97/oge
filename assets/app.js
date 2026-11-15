@@ -13,6 +13,49 @@ const variantKey=(kind,n)=>kind+'-'+n;
 const row=(kind,n)=>DATA[kind][n-1];
 const keyData=(kind,n)=>{const k=variantKey(kind,n);if(!store[k])store[k]={};return store[k]};
 const persist=()=>{try{localStorage.setItem(storageKey,JSON.stringify(store))}catch(e){}};
+// Recover previous account-scoped browser drafts only after the user explicitly agrees.
+function findArchivedProgress(){
+ const found=[];
+ try{
+  for(let i=0;i<localStorage.length;i++){
+   const key=localStorage.key(i);
+   if(!/^oge-progress-user-[\w-]+$/.test(key))continue;
+   const data=JSON.parse(localStorage.getItem(key)||'{}');
+   if(!data||typeof data!=='object'||Array.isArray(data))continue;
+   let count=0;
+   for(const [task,values] of Object.entries(data)){
+    if(!/^(grammar|lexicon)-\d+$/.test(task)||!values||typeof values!=='object')continue;
+    count+=Object.values(values).filter(v=>typeof v==='string'&&v.trim()).length;
+   }
+   if(count)found.push({key,data,count});
+  }
+ }catch(e){}
+ return found;
+}
+const archivedProgress=findArchivedProgress();
+let recoveryDismissed=false;
+try{recoveryDismissed=localStorage.getItem('oge-progress-restored-v1')==='yes'}catch(e){}
+function recoveryNotice(){
+ if(recoveryDismissed||!archivedProgress.length)return '';
+ const choice=archivedProgress.length>1?`<label class="recovery-choice">Набор ответов: <select id="recovery-choice" aria-label="Выбрать сохранённый прогресс">${archivedProgress.map((x,i)=>`<option value="${i}">Профиль ${i+1} · ${x.count} ответов</option>`).join('')}</select></label>`:'';
+ return `<section class="panel recovery-banner" aria-label="Восстановление прежних ответов"><div><strong>Нашлись ответы из предыдущей версии</strong><p>Они хранятся только в этом браузере. Можешь вернуть их в тренажёр, не удаляя текущие ответы.</p>${choice}</div><div class="recovery-actions"><button type="button" class="button primary" data-action="restore-progress">Восстановить</button><button type="button" class="button" data-action="dismiss-progress">Не сейчас</button></div></section>`;
+}
+function restoreArchivedProgress(){
+ const index=Number(document.getElementById('recovery-choice')?.value||0),candidate=archivedProgress[index];
+ if(!candidate)return;
+ if(!confirm('Восстановить прежние ответы в текущий тренажёр? Уже введённые ответы останутся без изменений.'))return;
+ for(const [task,values] of Object.entries(candidate.data)){
+  if(!/^(grammar|lexicon)-\d+$/.test(task)||!values||typeof values!=='object')continue;
+  if(!store[task]||typeof store[task]!=='object')store[task]={};
+  for(const [i,value] of Object.entries(values)){
+   if(/^\d+$/.test(i)&&typeof value==='string'&&value.trim()&&!String(store[task][i]||'').trim())store[task][i]=value;
+  }
+ }
+ persist();
+ recoveryDismissed=true;
+ try{localStorage.setItem('oge-progress-restored-v1','yes')}catch(e){}
+ render();
+}
 const answersFor=x=>String(x||'').split(/\s+ИЛИ\s+|\s+или\s+|\s*\/\s*/i).map(clean);
 const statusFor=(kind,n,i)=>{let state=keyData(kind,n),user=(state[i]||'').trim();return !user?'empty':answersFor(row(kind,n).a[i]).includes(clean(user))?'correct':'wrong'};
 const countStats=()=>{let total=0,filled=0,correct=0;for(const kind of ['grammar','lexicon'])for(const v of DATA[kind]){total+=v.a.length;for(let i=0;i<v.a.length;i++){const st=statusFor(kind,v.n,i);if(st!=='empty')filled++;if(st==='correct')correct++}}return {total,filled,correct}};
@@ -130,12 +173,14 @@ for(const f of filtered){let ix=DATA.families.indexOf(f);let revealed=familyMode
 if(!filtered.length)h+='<div class="panel" style="padding:24px;color:#7b8498">Нет совпадений. Попробуй другое слово.</div>';h+='</div>';return h}
 let drills=DATA.families.flatMap(f=>f.links.map(([base,to])=>({base,to}))).filter(x=>x.base!==x.to);
 function renderDrill(){let d=drills[drillIndex%drills.length];return `<div class="drill"><div class="drill-label">ТРЕНИРОВКА СЛОВООБРАЗОВАНИЯ · ${drillIndex+1}</div><h2>${esc(d.base)}</h2><div class="arrow">↓</div><p>Вспомни слово, которое образуется от <b>${esc(d.base)}</b>.<br>Введи производную форму из изученного списка.</p><input id="drill-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Введите производное слово"><div class="drill-output" id="drill-out">${drillShown?esc(drillFeedback):''}</div><div class="drill-actions"><button class="button primary" data-action="drill-check">Проверить</button><button class="button" data-action="drill-reveal">Показать ответ</button><button class="button" data-action="drill-next">Следующее →</button></div></div>`}
-function render(){initNav();if(page==='home')content.innerHTML=home();else if(page==='families')content.innerHTML=renderFamilies();else{content.innerHTML=renderPractice(page);exerciseDecorate()}updateProgress()}
+function render(){initNav();if(page==='home')content.innerHTML=recoveryNotice()+home();else if(page==='families')content.innerHTML=renderFamilies();else{content.innerHTML=renderPractice(page);exerciseDecorate()}updateProgress()}
 function markChecked(){content.querySelectorAll('.answer').forEach(w=>w.dataset.checked='yes');exerciseDecorate();refreshPracticeVisual();bounceResult();const inputs=[...content.querySelectorAll('.answer')];if(inputs.length&&inputs.every(el=>el.classList.contains('correct')))celebrate(root.querySelector('[data-action=check]'))}
 function alertToast(message){let out=document.getElementById('drill-out');if(out)out.textContent=message}
 root.addEventListener('click',e=>{
  let target=e.target.closest('[data-action]');if(!target)return;let a=target.dataset.action;
  if(a==='theme'){let mode=target.dataset.theme;if(mode!=='light'&&mode!=='dark')return;document.documentElement.dataset.theme=mode;try{localStorage.setItem('oge-theme-v1',mode)}catch(e){};root.querySelectorAll('[data-action=theme]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.theme===mode)));return}
+ if(a==='restore-progress'){restoreArchivedProgress();return}
+ if(a==='dismiss-progress'){recoveryDismissed=true;render();return}
  if(a==='nav'){setPage(target.dataset.page);return}
  if(a==='prev'||a==='next'||a==='jump'){transitionScreen(()=>{variant[section]=a==='jump'?Number(target.dataset.n):Math.max(1,Math.min(DATA[section].length,variant[section]+(a==='next'?1:-1)));showAll=false;render()});return}
  if(a==='grid'){showVariantGrid=!showVariantGrid;render();return}
